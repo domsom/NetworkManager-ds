@@ -32,6 +32,7 @@
 #include "nm-dbus-glib-types.h"
 
 #include "nm-setting-8021x.h"
+#include "nm-setting-actions.h"
 #include "nm-setting-bluetooth.h"
 #include "nm-setting-connection.h"
 #include "nm-setting-infiniband.h"
@@ -117,7 +118,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 static GHashTable *registered_settings = NULL;
 
-#define DEFAULT_MAP_SIZE 19
+#define DEFAULT_MAP_SIZE 20
 
 static struct SettingInfo {
 	const char *name;
@@ -277,6 +278,11 @@ register_default_settings (void)
 	register_one_setting (NM_SETTING_IP6_CONFIG_SETTING_NAME,
 	                      NM_TYPE_SETTING_IP6_CONFIG,
 	                      NM_SETTING_IP6_CONFIG_ERROR,
+	                      6, FALSE);
+
+	register_one_setting (NM_SETTING_ACTIONS_SETTING_NAME,
+	                      NM_TYPE_SETTING_ACTIONS,
+	                      NM_SETTING_ACTIONS_ERROR,
 	                      6, FALSE);
 
 	/* Be sure to update DEFAULT_MAP_SIZE if you add another setting!! */
@@ -1367,6 +1373,15 @@ nm_connection_get_setting_802_1x (NMConnection *connection)
 	g_return_val_if_fail (NM_IS_CONNECTION (connection), NULL);
 
 	return (NMSetting8021x *) nm_connection_get_setting (connection, NM_TYPE_SETTING_802_1X);
+}
+
+NMSettingActions *
+nm_connection_get_setting_actions (NMConnection *connection)
+{
+	g_return_val_if_fail (connection != NULL, NULL);
+	g_return_val_if_fail (NM_IS_CONNECTION (connection), NULL);
+
+	return (NMSettingActions *) nm_connection_get_setting (connection, NM_TYPE_SETTING_ACTIONS);
 }
 
 /**

@@ -31,6 +31,7 @@
 #include <nm-setting.h>
 
 #include <nm-setting-8021x.h>
+#include <nm-setting-actions.h>
 #include <nm-setting-bluetooth.h>
 #include <nm-setting-bond.h>
 #include <nm-setting-cdma.h>
@@ -185,6 +186,7 @@ const char *  nm_connection_get_uuid      (NMConnection *connection);
 const char *  nm_connection_get_id        (NMConnection *connection);
 
 NMSetting8021x *           nm_connection_get_setting_802_1x            (NMConnection *connection);
+NMSettingActions *         nm_connection_get_setting_actions           (NMConnection *connection);
 NMSettingBluetooth *       nm_connection_get_setting_bluetooth         (NMConnection *connection);
 NMSettingBond *            nm_connection_get_setting_bond              (NMConnection *connection);
 NMSettingCdma *            nm_connection_get_setting_cdma              (NMConnection *connection);
