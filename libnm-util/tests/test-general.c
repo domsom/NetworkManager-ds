@@ -1361,6 +1361,59 @@ test_hwaddr_aton_malformed (void)
 	g_assert (nm_utils_hwaddr_aton ("0:1a:2B:3:a@%%", ARPHRD_ETHER, buf) == NULL);
 }
 
+static void
+test_parse_mount_uri (void)
+{
+	char *valid_uris[] = {
+			"smb://host/folder",
+			"sftp://host/",
+			NULL
+	};
+	// corresponding array parts for valid_uris[]
+	char *valid_schemes[] = {
+			"smb",
+			"sftp"
+	};
+	char *valid_hosts[] = {
+			"host",
+			"host"
+	};
+	char *valid_folders[] = {
+			"folder",
+			""
+	};
+
+	char *invalid_uris[] = {
+			"http://host/folder?param",
+			"justastring",
+			"file://usr/local/bin",
+			"smb://host",
+			NULL
+	};
+
+	char *scheme, *host, *folder;
+	int i = 0;
+
+	while (valid_uris[i] != NULL)
+	{
+		g_assert(nm_utils_parse_mount_uri(valid_uris[i], &scheme, &host, &folder) == TRUE);
+		g_assert(strcmp(scheme, valid_schemes[i]) == 0);
+		g_assert(strcmp(host, valid_hosts[i]) == 0);
+		g_assert(strcmp(folder, valid_folders[i]) == 0);
+		i++;
+	}
+
+	i = 0; scheme = NULL; host = NULL; folder = NULL;
+	while (invalid_uris[i] != NULL)
+	{
+		g_assert(nm_utils_parse_mount_uri(invalid_uris[i], &scheme, &host, &folder) == FALSE);
+		g_assert(scheme == NULL);
+		g_assert(host == NULL);
+		g_assert(folder == NULL);
+		i++;
+	}
+}
+
 int main (int argc, char **argv)
 {
 	GError *error = NULL;
@@ -1407,6 +1460,8 @@ int main (int argc, char **argv)
 	test_hwaddr_aton_ib_normal ();
 	test_hwaddr_aton_no_leading_zeros ();
 	test_hwaddr_aton_malformed ();
+
+	test_parse_mount_uri ();
 
 	base = g_path_get_basename (argv[0]);
 	fprintf (stdout, "%s: SUCCESS\n", base);

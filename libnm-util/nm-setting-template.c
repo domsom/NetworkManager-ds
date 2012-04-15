@@ -29,7 +29,29 @@
 
 #include "nm-setting-template.h"
 
+/**
+ * nm_setting_template_error_quark:
+ *
+ * Registers an error quark for #NMSettingTemplate if necessary.
+ *
+ * Returns: the error quark used for #NMSettingTemplate errors.
+ **/
+GQuark
+nm_setting_template_error_quark (void)
+{
+	static GQuark quark;
+
+	if (G_UNLIKELY (!quark))
+		quark = g_quark_from_static_string ("nm-setting-template-error-quark");
+	return quark;
+}
+
 G_DEFINE_TYPE (NMSettingTemplate, nm_setting_template, NM_TYPE_SETTING)
+
+#define NM_SETTING_TEMPLATE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_TEMPLATE, NMSettingTemplatePrivate))
+
+typedef struct {
+} NMSettingTemplatePrivate;
 
 enum {
 	PROP_0,
@@ -44,7 +66,7 @@ nm_setting_template_new (void)
 }
 
 static gboolean
-verify (NMSetting *setting, GSList *all_settings)
+verify (NMSetting *setting, GSList *all_settings, GError **error)
 {
 	NMSettingTemplate *self = NM_SETTING_TEMPLATE (setting);
 	return TRUE;
@@ -95,6 +117,8 @@ nm_setting_template_class_init (NMSettingTemplateClass *setting_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
 	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+
+	g_type_class_add_private (setting_class, sizeof (NMSettingTemplatePrivate));
 
 	/* virtual methods */
 	object_class->set_property = set_property;

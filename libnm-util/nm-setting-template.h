@@ -43,6 +43,9 @@ G_BEGIN_DECLS
 
 #define NM_SETTING_TEMPLATE_SETTING_NAME "template"
 
+#define NM_SETTING_TEMPLATE_ERROR nm_setting_template_error_quark ()
+GQuark nm_setting_template_error_quark (void);
+
 typedef struct {
 	NMSetting parent;
 } NMSettingTemplate;
