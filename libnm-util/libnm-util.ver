@@ -28,6 +28,7 @@ global:
 	nm_connection_get_setting_olpc_mesh;
 	nm_connection_get_setting_ppp;
 	nm_connection_get_setting_pppoe;
+	nm_connection_get_setting_resources;
 	nm_connection_get_setting_serial;
 	nm_connection_get_setting_vlan;
 	nm_connection_get_setting_vpn;
@@ -364,6 +365,17 @@ global:
 	nm_setting_pppoe_get_type;
 	nm_setting_pppoe_get_username;
 	nm_setting_pppoe_new;
+	nm_setting_resources_get_type;
+	nm_setting_resources_new;
+	nm_setting_resources_get_num_network_drives;
+	nm_setting_resources_get_network_drive;
+	nm_setting_resources_add_network_drive;
+	nm_setting_resources_remove_network_drive_by_index;
+	nm_setting_resources_remove_network_drive_by_uri;
+	nm_setting_resources_clear_network_drives;
+	nm_setting_resources_has_network_drive;
+	nm_setting_resources_is_scheme_allowed;
+	nm_setting_resources_get_allowed_schemes;
 	nm_setting_secret_flags_get_type;
 	nm_setting_serial_error_get_type;
 	nm_setting_serial_error_quark;
@@ -508,6 +520,7 @@ global:
 	nm_utils_ip6_routes_from_gvalue;
 	nm_utils_ip6_routes_to_gvalue;
 	nm_utils_is_empty_ssid;
+	nm_utils_parse_mount_uri;
 	nm_utils_rsa_key_encrypt;
 	nm_utils_same_ssid;
 	nm_utils_security_type_get_type;

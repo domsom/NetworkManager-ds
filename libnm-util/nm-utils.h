@@ -134,6 +134,8 @@ char       *nm_utils_hwaddr_ntoa  (gconstpointer addr, int type);
 GByteArray *nm_utils_hwaddr_atoba (const char *asc, int type);
 guint8     *nm_utils_hwaddr_aton  (const char *asc, int type, gpointer buffer);
 
+gboolean nm_utils_parse_mount_uri (const char *uri, char **scheme, char **host, char **folder);
+
 G_END_DECLS
 
 #endif /* NM_UTILS_H */

@@ -2568,3 +2568,52 @@ nm_utils_hwaddr_ntoa (gconstpointer addr, int type)
 
 	return g_string_free (out, FALSE);
 }
+
+/**
+ * nm_utils_parse_mount_uri:
+ * @uri: the uri containing a network mount to parse (e.g. smb://host/folder)
+ * @scheme: a pointer receiving the char* with the parsed scheme (e.g. "smb") or NULL if it is not of interest
+ * @host: a pointer receiving the char* with the parsed host (e.g. "host") or NULL if it is not of interest
+ * @folder: a pointer receiving the char* with the parsed folder (e.g. "folder") or NULL if it is not of interest
+ *
+ * Parses a uri identifying a gvfs-mountable network share.
+ * Username/Password, no folders & deep folders are currently not supported.
+ *
+ * The received strings must be g_free'd after use.
+ *
+ * Return value: TRUE if the uri was parsed successfully, FALSE otherwise
+ */
+gboolean
+nm_utils_parse_mount_uri (const char *uri, char **scheme, char **host, char **folder)
+{
+	char *tmp_scheme, *tmp_host, *tmp_folder, *rest;
+
+	// Check if uri meets minimum requirements
+	if ((uri == NULL) || (strlen(uri) < 9)) return FALSE;
+
+	// Parse scheme
+	rest = g_strstr_len(uri, strlen(uri), "://");
+	if (rest == NULL) return FALSE;
+	tmp_scheme = (char *) g_malloc0 (rest - uri + 1);
+	strncpy(tmp_scheme, uri, rest - uri);
+
+	// Parse host
+	rest = rest + strlen("://");
+	tmp_folder = g_strstr_len(rest, strlen(rest), "/");
+	if (tmp_folder == NULL) return FALSE;
+	tmp_host = (char *) g_malloc0 (tmp_folder - rest + 1);
+	strncpy(tmp_host, rest, tmp_folder - rest);
+
+	// Rest is folder, just check if valid
+	rest = tmp_folder + strlen("/");
+	if (strchr(rest, '/') != NULL) return FALSE;
+	if (strchr(rest, '?') != NULL) return FALSE;
+	tmp_folder = g_strdup(rest);
+
+	// Return requested data, free the others
+	if (scheme != NULL) *scheme = tmp_scheme; else g_free(tmp_scheme);
+	if (host != NULL) *host = tmp_host; else g_free(tmp_host);
+	if (folder != NULL) *folder = tmp_folder; else g_free(tmp_folder);
+
+	return TRUE;
+}

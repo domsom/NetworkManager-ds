@@ -43,6 +43,7 @@
 #include <nm-setting-olpc-mesh.h>
 #include <nm-setting-ppp.h>
 #include <nm-setting-pppoe.h>
+#include <nm-setting-resources.h>
 #include <nm-setting-serial.h>
 #include <nm-setting-vpn.h>
 #include <nm-setting-wimax.h>
@@ -198,6 +199,7 @@ NMSettingIP6Config *       nm_connection_get_setting_ip6_config        (NMConnec
 NMSettingOlpcMesh *        nm_connection_get_setting_olpc_mesh         (NMConnection *connection);
 NMSettingPPP *             nm_connection_get_setting_ppp               (NMConnection *connection);
 NMSettingPPPOE *           nm_connection_get_setting_pppoe             (NMConnection *connection);
+NMSettingResources *       nm_connection_get_setting_resources         (NMConnection *connection);
 NMSettingSerial *          nm_connection_get_setting_serial            (NMConnection *connection);
 NMSettingVPN *             nm_connection_get_setting_vpn               (NMConnection *connection);
 NMSettingWimax *           nm_connection_get_setting_wimax             (NMConnection *connection);

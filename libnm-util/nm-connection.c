@@ -40,6 +40,7 @@
 #include "nm-setting-ip6-config.h"
 #include "nm-setting-ppp.h"
 #include "nm-setting-pppoe.h"
+#include "nm-setting-resources.h"
 #include "nm-setting-wimax.h"
 #include "nm-setting-wired.h"
 #include "nm-setting-wireless.h"
@@ -118,7 +119,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 static GHashTable *registered_settings = NULL;
 
-#define DEFAULT_MAP_SIZE 20
+#define DEFAULT_MAP_SIZE 21
 
 static struct SettingInfo {
 	const char *name;
@@ -283,6 +284,11 @@ register_default_settings (void)
 	register_one_setting (NM_SETTING_ACTIONS_SETTING_NAME,
 	                      NM_TYPE_SETTING_ACTIONS,
 	                      NM_SETTING_ACTIONS_ERROR,
+	                      6, FALSE);
+
+	register_one_setting (NM_SETTING_RESOURCES_SETTING_NAME,
+	                      NM_TYPE_SETTING_RESOURCES,
+	                      NM_SETTING_RESOURCES_ERROR,
 	                      6, FALSE);
 
 	/* Be sure to update DEFAULT_MAP_SIZE if you add another setting!! */
@@ -1569,6 +1575,23 @@ nm_connection_get_setting_pppoe (NMConnection *connection)
 	g_return_val_if_fail (NM_IS_CONNECTION (connection), NULL);
 
 	return (NMSettingPPPOE *) nm_connection_get_setting (connection, NM_TYPE_SETTING_PPPOE);
+}
+
+/**
+ * nm_connection_get_setting_resources:
+ * @connection: the #NMConnection
+ *
+ * A shortcut to return any #NMSettingResources the connection might contain.
+ *
+ * Returns: (transfer none): an #NMSettingResources if the connection contains one, otherwise NULL
+ **/
+NMSettingResources *
+nm_connection_get_setting_resources (NMConnection *connection)
+{
+	g_return_val_if_fail (connection != NULL, NULL);
+	g_return_val_if_fail (NM_IS_CONNECTION (connection), NULL);
+
+	return (NMSettingResources *) nm_connection_get_setting (connection, NM_TYPE_SETTING_RESOURCES);
 }
 
 /**
