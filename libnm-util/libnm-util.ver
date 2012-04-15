@@ -15,7 +15,6 @@ global:
 	nm_connection_get_path;
 	nm_connection_get_setting;
 	nm_connection_get_setting_802_1x;
-	nm_connection_get_setting_actions;
 	nm_connection_get_setting_bluetooth;
 	nm_connection_get_setting_bond;
 	nm_connection_get_setting_by_name;
@@ -173,12 +172,6 @@ global:
 	nm_setting_802_1x_set_phase2_client_cert;
 	nm_setting_802_1x_set_phase2_private_key;
 	nm_setting_802_1x_set_private_key;
-	nm_setting_actions_error_get_type;
-	nm_setting_actions_error_quark;
-	nm_setting_actions_get_connect_script;
-	nm_setting_actions_get_disconnect_script;
-	nm_setting_actions_get_type;
-	nm_setting_actions_new;
 	nm_setting_bluetooth_error_get_type;
 	nm_setting_bluetooth_error_quark;
 	nm_setting_bluetooth_get_bdaddr;
