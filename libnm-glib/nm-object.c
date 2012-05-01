@@ -18,7 +18,7 @@
  * Boston, MA 02110-1301 USA.
  *
  * Copyright (C) 2007 - 2008 Novell, Inc.
- * Copyright (C) 2007 - 2011 Red Hat, Inc.
+ * Copyright (C) 2007 - 2012 Red Hat, Inc.
  */
 
 #include <string.h>
@@ -31,6 +31,7 @@
 #include "nm-dbus-glib-types.h"
 #include "nm-glib-compat.h"
 #include "nm-types.h"
+#include "nm-glib-marshal.h"
 
 #define DEBUG 0
 
@@ -78,7 +79,7 @@ typedef struct {
 
 	GSList *notify_props;
 	guint32 notify_id;
-	gboolean inited, disposed;
+	gboolean inited;
 
 	GSList *reload_results;
 	guint reload_remaining;
@@ -92,6 +93,31 @@ enum {
 
 	LAST_PROP
 };
+
+enum {
+	OBJECT_CREATION_FAILED,
+
+	LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
+/**
+ * nm_object_error_quark:
+ *
+ * Registers an error quark for #NMObject if necessary.
+ *
+ * Returns: the error quark used for #NMObject errors.
+ **/
+GQuark
+nm_object_error_quark (void)
+{
+	static GQuark quark;
+
+	if (G_UNLIKELY (!quark))
+		quark = g_quark_from_static_string ("nm-object-error-quark");
+	return quark;
+}
 
 static void
 nm_object_init (NMObject *object)
@@ -194,13 +220,6 @@ dispose (GObject *object)
 {
 	NMObjectPrivate *priv = NM_OBJECT_GET_PRIVATE (object);
 
-	if (priv->disposed) {
-		G_OBJECT_CLASS (nm_object_parent_class)->dispose (object);
-		return;
-	}
-
-	priv->disposed = TRUE;
-
 	if (priv->notify_id) {
 		g_source_remove (priv->notify_id);
 		priv->notify_id = 0;
@@ -208,12 +227,18 @@ dispose (GObject *object)
 
 	g_slist_foreach (priv->notify_props, (GFunc) g_free, NULL);
 	g_slist_free (priv->notify_props);
+	priv->notify_props = NULL;
 
 	g_slist_foreach (priv->property_interfaces, (GFunc) g_free, NULL);
 	g_slist_free (priv->property_interfaces);
+	priv->property_interfaces = NULL;
 
-	g_object_unref (priv->properties_proxy);
-	dbus_g_connection_unref (priv->connection);
+	g_clear_object (&priv->properties_proxy);
+
+	if (priv->connection) {
+		dbus_g_connection_unref (priv->connection);
+		priv->connection = NULL;
+	}
 
 	G_OBJECT_CLASS (nm_object_parent_class)->dispose (object);
 }
@@ -324,6 +349,29 @@ nm_object_class_init (NMObjectClass *nm_object_class)
 							  "DBus Object Path",
 							  NULL,
 							  G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+	/* signals */
+
+	/**
+	 * NMObject::object-creation-failed:
+	 * @master_object: the object that received the signal
+	 * @error: the error that occured while creating object
+	 * @failed_path: object path of the failed object
+	 *
+	 * Indicates that an error occured while creating an #NMObject object
+	 * during property handling of @master_object.
+	 *
+	 * Note: Be aware that the signal is private for libnm-glib's internal
+	 *       use.
+	 **/
+	signals[OBJECT_CREATION_FAILED] =
+		g_signal_new ("object-creation-failed",
+		              G_OBJECT_CLASS_TYPE (object_class),
+		              G_SIGNAL_RUN_FIRST,
+		              G_STRUCT_OFFSET (NMObjectClass, object_creation_failed),
+		              NULL, NULL,
+		              _nm_glib_marshal_VOID__POINTER_POINTER,
+		              G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 }
 
 static void
@@ -464,7 +512,7 @@ _nm_object_create (GType type, DBusGConnection *connection, const char *path)
 	return object;
 }
 
-typedef void (*NMObjectCreateCallbackFunc) (GObject *, gpointer);
+typedef void (*NMObjectCreateCallbackFunc) (GObject *, const char *, gpointer);
 typedef struct {
 	DBusGConnection *connection;
 	char *path;
@@ -475,7 +523,7 @@ typedef struct {
 static void
 create_async_complete (GObject *object, NMObjectTypeAsyncData *async_data)
 {
-	async_data->callback (object, async_data->user_data);
+	async_data->callback (object, async_data->path, async_data->user_data);
 
 	g_free (async_data->path);
 	g_slice_free (NMObjectTypeAsyncData, async_data);
@@ -644,11 +692,22 @@ object_property_complete (ObjectCreatedData *odata)
 }
 
 static void
-object_created (GObject *obj, gpointer user_data)
+object_created (GObject *obj, const char *path, gpointer user_data)
 {
 	ObjectCreatedData *odata = user_data;
 
 	/* We assume that on error, the creator_func printed something */
+
+	if (obj == NULL && g_strcmp0 (path, "/") != 0 ) {
+		GError *error;
+		error = g_error_new (NM_OBJECT_ERROR,
+		                     NM_OBJECT_ERROR_OBJECT_CREATION_FAILURE,
+		                     "Creating object for path '%s' failed in libnm-glib.",
+		                     path);
+		/* Emit a signal about the error. */
+		g_signal_emit (odata->self, signals[OBJECT_CREATION_FAILED], 0, error, path);
+		g_error_free (error);
+	}
 
 	odata->objects[--odata->remaining] = obj;
 	if (!odata->remaining)
@@ -676,18 +735,19 @@ handle_object_property (NMObject *self, const char *property_name, GValue *value
 		priv->reload_remaining++;
 
 	path = g_value_get_boxed (value);
+
 	if (!strcmp (path, "/")) {
-		object_created (NULL, odata);
+		object_created (NULL, path, odata);
 		return TRUE;
 	}
 
 	obj = G_OBJECT (_nm_object_cache_get (path));
 	if (obj) {
-		object_created (obj, odata);
+		object_created (obj, path, odata);
 		return TRUE;
 	} else if (synchronously) {
 		obj = _nm_object_create (pi->object_type, priv->connection, path);
-		object_created (obj, odata);
+		object_created (obj, path, odata);
 		return obj != NULL;
 	} else {
 		_nm_object_create_async (pi->object_type, priv->connection, path,
@@ -736,10 +796,10 @@ handle_object_array_property (NMObject *self, const char *property_name, GValue 
 
 		obj = G_OBJECT (_nm_object_cache_get (path));
 		if (obj) {
-			object_created (obj, odata);
+			object_created (obj, path, odata);
 		} else if (synchronously) {
 			obj = _nm_object_create (pi->object_type, priv->connection, path);
-			object_created (obj, odata);
+			object_created (obj, path, odata);
 		} else {
 			_nm_object_create_async (pi->object_type, priv->connection, path,
 			                         object_created, odata);
@@ -844,8 +904,14 @@ process_properties_changed (NMObject *self, GHashTable *properties, gboolean syn
 		return;
 
 	g_hash_table_iter_init (&iter, properties);
-	while (g_hash_table_iter_next (&iter, &name, &value))
-		handle_property_changed (self, name, value, synchronously);
+	while (g_hash_table_iter_next (&iter, &name, &value)) {
+		if (value)
+			handle_property_changed (self, name, value, synchronously);
+		else {
+			g_warning ("%s:%d %s(): object %s property '%s' value is unexpectedly NULL",
+			           __FILE__, __LINE__, __func__, G_OBJECT_TYPE_NAME (self), (const char *) name);
+		}
+	}
 }
 
 static void
@@ -1086,7 +1152,7 @@ _nm_object_set_property (NMObject *object,
 }
 
 static void
-pseudo_property_object_created (GObject *obj, gpointer user_data)
+pseudo_property_object_created (GObject *obj, const char *path, gpointer user_data)
 {
 	PseudoPropertyInfo *ppi = user_data;
 
@@ -1112,7 +1178,7 @@ pseudo_property_added (DBusGProxy *proxy, const char *path, gpointer user_data)
 
 	obj = _nm_object_cache_get (path);
 	if (obj)
-		pseudo_property_object_created (G_OBJECT (obj), ppi);
+		pseudo_property_object_created (G_OBJECT (obj), path, ppi);
 	else {
 		_nm_object_create_async (ppi->pi.object_type, priv->connection, path,
 		                         pseudo_property_object_created, ppi);

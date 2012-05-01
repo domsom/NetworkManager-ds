@@ -25,6 +25,8 @@
 #include <string.h>
 #include <netinet/ether.h>
 
+#include "nm-glib-compat.h"
+
 #include <nm-connection.h>
 #include <nm-setting-connection.h>
 #include <nm-setting-wireless.h>
@@ -41,7 +43,6 @@ G_DEFINE_TYPE (NMAccessPoint, nm_access_point, NM_TYPE_OBJECT)
 #define NM_ACCESS_POINT_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_ACCESS_POINT, NMAccessPointPrivate))
 
 typedef struct {
-	gboolean disposed;
 	DBusGProxy *proxy;
 
 	NM80211ApFlags flags;
@@ -431,14 +432,7 @@ dispose (GObject *object)
 {
 	NMAccessPointPrivate *priv = NM_ACCESS_POINT_GET_PRIVATE (object);
 
-	if (priv->disposed) {
-		G_OBJECT_CLASS (nm_access_point_parent_class)->dispose (object);
-		return;
-	}
-
-	priv->disposed = TRUE;
-
-	g_object_unref (priv->proxy);
+	g_clear_object (&priv->proxy);
 
 	G_OBJECT_CLASS (nm_access_point_parent_class)->dispose (object);
 }

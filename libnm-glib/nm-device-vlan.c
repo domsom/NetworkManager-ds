@@ -24,6 +24,8 @@
 #include <string.h>
 #include <netinet/ether.h>
 
+#include "nm-glib-compat.h"
+
 #include <nm-setting-connection.h>
 #include <nm-setting-vlan.h>
 #include <nm-utils.h>
@@ -238,10 +240,7 @@ dispose (GObject *object)
 {
 	NMDeviceVlanPrivate *priv = NM_DEVICE_VLAN_GET_PRIVATE (object);
 
-	if (priv->proxy) {
-		g_object_unref (priv->proxy);
-		priv->proxy = NULL;
-	}
+	g_clear_object (&priv->proxy);
 
 	G_OBJECT_CLASS (nm_device_vlan_parent_class)->dispose (object);
 }

@@ -25,6 +25,8 @@
 #include <string.h>
 #include <netinet/ether.h>
 
+#include "nm-glib-compat.h"
+
 #include <nm-setting-connection.h>
 #include <nm-setting-wired.h>
 #include <nm-setting-pppoe.h>
@@ -44,8 +46,6 @@ typedef struct {
 	char *perm_hw_address;
 	guint32 speed;
 	gboolean carrier;
-
-	gboolean disposed;
 } NMDeviceEthernetPrivate;
 
 enum {
@@ -280,14 +280,7 @@ dispose (GObject *object)
 {
 	NMDeviceEthernetPrivate *priv = NM_DEVICE_ETHERNET_GET_PRIVATE (object);
 
-	if (priv->disposed) {
-		G_OBJECT_CLASS (nm_device_ethernet_parent_class)->dispose (object);
-		return;
-	}
-
-	priv->disposed = TRUE;
-
-	g_object_unref (priv->proxy);
+	g_clear_object (&priv->proxy);
 
 	G_OBJECT_CLASS (nm_device_ethernet_parent_class)->dispose (object);
 }

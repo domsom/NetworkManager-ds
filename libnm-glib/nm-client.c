@@ -53,8 +53,6 @@ G_DEFINE_TYPE_WITH_CODE (NMClient, nm_client, NM_TYPE_OBJECT,
 #define NM_CLIENT_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_CLIENT, NMClientPrivate))
 
 typedef struct {
-	gboolean disposed;
-
 	DBusGProxy *client_proxy;
 	DBusGProxy *bus_proxy;
 	gboolean manager_running;
@@ -459,34 +457,55 @@ activate_info_complete (ActivateInfo *info,
 }
 
 static void
-recheck_pending_activations (NMClient *self)
+recheck_pending_activations (NMClient *self, const char *failed_path, GError *error)
 {
 	NMClientPrivate *priv = NM_CLIENT_GET_PRIVATE (self);
 	GSList *iter;
 	const GPtrArray *active_connections;
+	gboolean found_in_active = FALSE;
+	gboolean found_in_pending = FALSE;
+	ActivateInfo *ainfo = NULL;
 	int i;
 
 	active_connections = nm_client_get_active_connections (self);
-	if (!active_connections)
-		return;
 
-	/* For each active connection, look for a pending activation that has
-	 * the active connection's object path, and call its callback.
+	/* For each pending activation, look for a active connection that has
+	 * the pending activation's object path, and call pending connection's
+	 * callback.
+	 * If the connection to activate doesn't make it to active_connections,
+	 * due to an error, we have to call the callback for failed_path.
 	 */
-	for (i = 0; i < active_connections->len; i++) {
-		NMActiveConnection *active = g_ptr_array_index (active_connections, i);
-		const char *active_path = nm_object_get_path (NM_OBJECT (active));
+	for (iter = priv->pending_activations; iter; iter = g_slist_next (iter)) {
+		ActivateInfo *info = iter->data;
 
-		for (iter = priv->pending_activations; iter; iter = g_slist_next (iter)) {
-			ActivateInfo *info = iter->data;
+		if (!found_in_pending && failed_path && g_strcmp0 (failed_path, info->active_path) == 0) {
+			found_in_pending = TRUE;
+			ainfo = info;
+		}
+
+		for (i = 0; active_connections && i < active_connections->len; i++) {
+			NMActiveConnection *active = g_ptr_array_index (active_connections, i);
+			const char *active_path = nm_object_get_path (NM_OBJECT (active));
+
+			if (!found_in_active && failed_path && g_strcmp0 (failed_path, active_path) == 0)
+				found_in_active = TRUE;
 
 			if (g_strcmp0 (info->active_path, active_path) == 0) {
-				/* Call the pending activation's callback and it all up*/
+				/* Call the pending activation's callback and it all up */
 				activate_info_complete (info, active, NULL);
 				activate_info_free (info);
 				break;
 			}
 		}
+	}
+
+	if (!found_in_active && found_in_pending) {
+		/* A newly activated connection failed due to some immediate error
+		 * and disappeared from active connection list.  Make sure the
+		 * callback gets called.
+		 */
+		activate_info_complete (ainfo, NULL, error);
+		activate_info_free (ainfo);
 	}
 }
 
@@ -508,7 +527,7 @@ activate_cb (DBusGProxy *proxy,
 		g_clear_error (&error);
 	} else {
 		info->active_path = path;
-		recheck_pending_activations (info->client);
+		recheck_pending_activations (info->client, NULL, NULL);
 	}
 }
 
@@ -587,7 +606,7 @@ add_activate_cb (DBusGProxy *proxy,
 	} else {
 		info->new_connection_path = connection_path;
 		info->active_path = active_path;
-		recheck_pending_activations (info->client);
+		recheck_pending_activations (info->client, NULL, NULL);
 	}
 }
 
@@ -653,7 +672,14 @@ nm_client_add_and_activate_connection (NMClient *client,
 static void
 active_connections_changed_cb (GObject *object, GParamSpec *pspec, gpointer user_data)
 {
-	recheck_pending_activations (NM_CLIENT (object));
+	recheck_pending_activations (NM_CLIENT (object), NULL, NULL);
+}
+
+static void
+object_creation_failed_cb (GObject *object, GError *error, char *failed_path)
+{
+	if (error)
+		recheck_pending_activations (NM_CLIENT (object), failed_path, error);
 }
 
 /**
@@ -692,7 +718,7 @@ nm_client_deactivate_connection (NMClient *client, NMActiveConnection *active)
  * Gets the active connections.
  *
  * Returns: (transfer none) (element-type NMClient.ActiveConnection): a #GPtrArray
-*  containing all the active #NMActiveConnection<!-- -->s.
+ *  containing all the active #NMActiveConnection<!-- -->s.
  * The returned array is owned by the client and should not be modified.
  **/
 const GPtrArray * 
@@ -1018,30 +1044,50 @@ nm_client_get_permission_result (NMClient *client, NMClientPermission permission
 /****************************************************************/
 
 static void
-free_object_array (GPtrArray **array)
+free_devices (NMClient *client, gboolean emit_signals)
 {
-	g_return_if_fail (array != NULL);
+	NMClientPrivate *priv = NM_CLIENT_GET_PRIVATE (client);
+	GPtrArray *devices;
+	NMDevice *device;
+	int i;
 
-	if (*array) {
-		g_ptr_array_foreach (*array, (GFunc) g_object_unref, NULL);
-		g_ptr_array_free (*array, TRUE);
-		*array = NULL;
+	if (!priv->devices)
+		return;
+
+	devices = priv->devices;
+	priv->devices = NULL;
+	for (i = 0; i < devices->len; i++) {
+		device = devices->pdata[i];
+		if (emit_signals)
+			g_signal_emit (client, signals[DEVICE_REMOVED], 0, device);
+		g_object_unref (device);
 	}
+	g_ptr_array_free (devices, TRUE);
 }
 
 static void
-dispose_and_free_object_array (GPtrArray **array)
+free_active_connections (NMClient *client, gboolean emit_signals)
 {
-	g_return_if_fail (array != NULL);
+	NMClientPrivate *priv = NM_CLIENT_GET_PRIVATE (client);
+	GPtrArray *active_connections;
+	NMActiveConnection *active_connection;
+	int i;
 
-	if (*array) {
-		/* The objects in the array may have circular refs with other
-		 * objects, which the caller will need to know to break by
-		 * calling this function rather than free_object_array().
-		 */
-		g_ptr_array_foreach (*array, (GFunc) g_object_run_dispose, NULL);
-		free_object_array (array);
+	if (!priv->active_connections)
+		return;
+
+	active_connections = priv->active_connections;
+	priv->active_connections = NULL;
+	for (i = 0; i < active_connections->len; i++) {
+		active_connection = active_connections->pdata[i];
+		/* Break circular refs */
+		g_object_run_dispose (G_OBJECT (active_connection));
+		g_object_unref (active_connection);
 	}
+	g_ptr_array_free (active_connections, TRUE);
+
+	if (emit_signals)
+		g_object_notify (G_OBJECT (client), NM_CLIENT_ACTIVE_CONNECTIONS);
 }
 
 static void
@@ -1088,8 +1134,8 @@ proxy_name_owner_changed (DBusGProxy *proxy,
 		_nm_object_queue_notify (NM_OBJECT (client), NM_CLIENT_MANAGER_RUNNING);
 		_nm_object_suppress_property_updates (NM_OBJECT (client), TRUE);
 		poke_wireless_devices_with_rf_status (client);
-		free_object_array (&priv->devices);
-		dispose_and_free_object_array (&priv->active_connections);
+		free_devices (client, TRUE);
+		free_active_connections (client, TRUE);
 		priv->wireless_enabled = FALSE;
 		priv->wireless_hw_enabled = FALSE;
 		priv->wwan_enabled = FALSE;
@@ -1098,6 +1144,11 @@ proxy_name_owner_changed (DBusGProxy *proxy,
 		priv->wimax_hw_enabled = FALSE;
 		g_free (priv->version);
 		priv->version = NULL;
+
+		/* Clear object cache to ensure bad refcounting by clients doesn't
+		 * keep objects in the cache.
+		 */
+		_nm_object_cache_clear (NM_OBJECT (client));
 	} else {
 		_nm_object_suppress_property_updates (NM_OBJECT (client), FALSE);
 		_nm_object_reload_properties_async (NM_OBJECT (client), updated_properties, client);
@@ -1385,6 +1436,9 @@ constructed (GObject *object)
 
 	g_signal_connect (object, "notify::" NM_CLIENT_ACTIVE_CONNECTIONS,
 	                  G_CALLBACK (active_connections_changed_cb), NULL);
+
+	g_signal_connect (object, "object-creation-failed",
+	                  G_CALLBACK (object_creation_failed_cb), NULL);
 }
 
 static gboolean
@@ -1515,26 +1569,26 @@ init_async (GAsyncInitable *initable, int io_priority,
 static void
 dispose (GObject *object)
 {
+	NMClient *client = NM_CLIENT (object);
 	NMClientPrivate *priv = NM_CLIENT_GET_PRIVATE (object);
 
-	if (priv->disposed) {
-		G_OBJECT_CLASS (nm_client_parent_class)->dispose (object);
-		return;
+	if (priv->perm_call) {
+		dbus_g_proxy_cancel_call (priv->client_proxy, priv->perm_call);
+		priv->perm_call = NULL;
 	}
 
-	if (priv->perm_call)
-		dbus_g_proxy_cancel_call (priv->client_proxy, priv->perm_call);
+	g_clear_object (&priv->client_proxy);
+	g_clear_object (&priv->bus_proxy);
 
-	g_object_unref (priv->client_proxy);
-	g_object_unref (priv->bus_proxy);
-
-	free_object_array (&priv->devices);
-	dispose_and_free_object_array (&priv->active_connections);
+	free_devices (client, FALSE);
+	free_active_connections (client, FALSE);
 
 	g_slist_foreach (priv->pending_activations, (GFunc) activate_info_free, NULL);
 	g_slist_free (priv->pending_activations);
+	priv->pending_activations = NULL;
 
 	g_hash_table_destroy (priv->permissions);
+	priv->permissions = NULL;
 
 	G_OBJECT_CLASS (nm_client_parent_class)->dispose (object);
 }

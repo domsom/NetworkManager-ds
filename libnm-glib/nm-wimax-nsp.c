@@ -23,6 +23,8 @@
 #include <config.h>
 #include <string.h>
 
+#include "nm-glib-compat.h"
+
 #include <nm-connection.h>
 #include <nm-setting-connection.h>
 #include <nm-setting-wimax.h>
@@ -37,7 +39,6 @@ G_DEFINE_TYPE (NMWimaxNsp, nm_wimax_nsp, NM_TYPE_OBJECT)
 #define NM_WIMAX_NSP_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_WIMAX_NSP, NMWimaxNspPrivate))
 
 typedef struct {
-	gboolean disposed;
 	DBusGProxy *proxy;
 
 	char *name;
@@ -217,14 +218,7 @@ dispose (GObject *object)
 {
 	NMWimaxNspPrivate *priv = NM_WIMAX_NSP_GET_PRIVATE (object);
 
-	if (priv->disposed) {
-		G_OBJECT_CLASS (nm_wimax_nsp_parent_class)->dispose (object);
-		return;
-	}
-
-	priv->disposed = TRUE;
-
-	g_object_unref (priv->proxy);
+	g_clear_object (&priv->proxy);
 
 	G_OBJECT_CLASS (nm_wimax_nsp_parent_class)->dispose (object);
 }

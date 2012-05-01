@@ -69,7 +69,7 @@ ssid_to_printable (const char *str, gsize len)
 	int i;
 
 	if (str == NULL || len == 0)
-		 return NULL;
+		return NULL;
 
 	if (g_utf8_validate (str, len, NULL))
 		return g_strdup_printf ("'%.*s'", (int) len, str);
@@ -134,6 +134,38 @@ nmc_ip6_address_as_string (const struct in6_addr *ip, GError **error)
 		}
 		return NULL;
 	}
+}
+
+/*
+ * Erase terminal line using ANSI escape sequences.
+ * It prints <ESC>[2K sequence to erase the line and then \r to return back
+ * to the beginning of the line.
+ *
+ * http://www.termsys.demon.co.uk/vtansi.htm
+ */
+void
+nmc_terminal_erase_line (void)
+{
+	printf ("\33[2K\r");
+	fflush (stdout);
+}
+
+/*
+ * Print animated progress for an operation.
+ * Repeated calls of the function will show rotating slash in terminal followed
+ * by the string passed in 'str' argument.
+ */
+void
+nmc_terminal_show_progress (const char *str)
+{
+	static int idx = 0;
+	const char slashes[4] = {'|', '/', '-', '\\'};
+
+	nmc_terminal_erase_line ();
+	printf ("%c %s", slashes[idx++], str ? str : "");
+	fflush (stdout);
+	if (idx == 4)
+		idx = 0;
 }
 
 /*
@@ -439,7 +471,7 @@ nmc_is_nm_running (NmCli *nmc, GError **error)
 			g_set_error (error, 0, 0, "%s", nmc->return_text->str);
 		goto done;
 	}
- 
+
 	if (!org_freedesktop_DBus_name_has_owner (proxy, NM_DBUS_SERVICE, &has_owner, &err)) {
 		g_string_printf (nmc->return_text, _("Error: NameHasOwner request failed: %s"),
 		                 (err && err->message) ? err->message : _("(unknown)"));

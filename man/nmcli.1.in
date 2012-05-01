@@ -20,9 +20,9 @@
 .\" Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111,
 .\" USA.
 .\"
-.\" Copyright (C) 2010 - 2011 Red Hat, Inc.
+.\" Copyright (C) 2010 - 2012 Red Hat, Inc.
 .\"
-.TH NMCLI "1" "6 September 2011"
+.TH NMCLI "1" "30 April 2012"
 
 .SH NAME
 nmcli \- command-line tool for controlling NetworkManager
@@ -57,26 +57,26 @@ nmcli \- command-line tool for controlling NetworkManager
 
 .SH DESCRIPTION
 .B nmcli
-is a command-line tool for controlling NetworkManager and getting its status.
-It is not meant as a replacement of \fInm-applet\fP or other similar clients.
-Rather it's a complementary utility to these programs.
-The main \fInmcli\fP's usage is on servers, headless machines or just for
-power users who prefer the command line.
+is a command-line tool for controlling NetworkManager and reporting on its status.
+It is not meant as a full replacement for \fInm-applet\fP or other similar clients
+but as a complementary utility to those programs.
+The main usage for \fInmcli\fP is on servers, headless machines or for power users
+who prefer the command line.
 .P
-The use cases comprise:
+Typical applications include:
 .IP \(em 4
 Initscripts: ifup/ifdown can utilize NetworkManager via \fInmcli\fP instead of
 having to manage connections itself and possibly interfere with NetworkManager.
 .IP \(em 4
 Servers, headless machines: No GUI is available; then \fInmcli\fP can be used
 to activate/deactivate connections.  However, if a connection requires a secret
-to activate and if that secret is not stored at the system level, \fInmcli\fP
-will not be able to activate it; it is currently unable to supply the needed
-secrets to NetworkManager.
+in order to activate and if that secret is not stored at the system level,
+\fInmcli\fP will not be able to activate it; it is currently unable to supply
+the secrets to NetworkManager.
 .IP \(em 4
-User sessions: \fInmcli\fP can be used activate/deactivate connections from the
-command line, but a full NetworkManager client (like \fInm-applet\fP) is used
-for supplying secrets not stored at the system level.  Keyring dialogs and
+User sessions: \fInmcli\fP can be used to activate/deactivate connections from
+the command line, but a client with a secret agent (like \fInm-applet\fP) is needed
+for supplying secrets not stored at the system level. Keyring dialogs and
 password prompts may appear if this happens.
 .SS \fIOPTIONS\fP
 .TP
@@ -85,12 +85,12 @@ Output is terse.  This mode is designed and suitable for computer (script)
 processing.
 .TP
 .B \-p, \-\-pretty
-Output is pretty.  This causes \fInmcli\fP to produce easy readable outputs
+Output is pretty. This causes \fInmcli\fP to produce easily readable outputs
 for humans, i.e. values are aligned, headers are printed, etc.
 .TP
 .B \-m, \-\-mode tabular | multiline
 Switch between \fItabular\fP and \fImultiline\fP output.
-If omitted, default is \fItabular\fP for most commands.  For the commands
+If omitted, default is \fItabular\fP for most commands. For the commands
 producing more structured information, that cannot be displayed on a single
 line, default is \fImultiline\fP. Currenly, they are:
 .br
@@ -101,8 +101,8 @@ line, default is \fImultiline\fP. Currenly, they are:
 \fItabular\fP   - Output is a table where each line describes a single entry.
 Columns define particular properties of the entry.
 .br
-\fImultiline\fP - Each entry comprises more lines, each property on its own line.
-The values are prefixed with the property name.
+\fImultiline\fP - Each entry comprises multiple lines, each property on its own
+line. The values are prefixed with the property name.
 .TP
 .B \-f, \-\-fields <field1,field2,...> | all | common
 This option is used to specify what fields (column names) should be printed.
@@ -133,18 +133,31 @@ NetworkManager
 .br
 Use this object to inquire and change state of NetworkManager.
 .TP
-.SS \fICOMMAND\fP := { status | enable | sleep | wifi | wwan }
+.SS \fICOMMAND\fP := { status | permissions | enable | sleep | wifi | wwan | wimax }
 .sp
 .RS
 .TP
 .B status
 .br
-Show overall status of NetworkManager.  This is the default action, when no
+Show overall status of NetworkManager. This is the default action, when no
 command is provided to \fInm\fP object.
 .br
 .nf
 \fBReference to D-Bus:\fP
 No simple reference.
+.fi
+.TP
+.B permissions
+.br
+Show the permissions a caller has for various authenticated operations that
+NetworkManager provides, like enable/disable networking, changing Wi-Fi, WWAN,
+and WiMAX state, modifying connections, etc.
+.br
+.nf
+\fBReference to D-Bus:\fP
+interface: org.freedesktop.NetworkManager
+method:    GetPermissions
+arguments: none
 .fi
 .TP
 .B enable [true|false]
@@ -162,10 +175,11 @@ arguments: TRUE or FALSE
 .TP
 .B sleep [true|false]
 .br
-Get sleep status or put to sleep/awake NetworkManager.  All interfaces managed by NetworkManager
-are deactivated when it falls asleep.  This command is not meant for user to enable/disable
-networking, use \fIenable\fP for that.  D-Bus \fISleep\fP method is designed
-to put NetworkManager to sleep or awake for suspending/resuming computer.
+Get sleep status or put to sleep/awake NetworkManager. All interfaces managed
+by NetworkManager are deactivated when it falls asleep. This command is not
+meant for user to enable/disable networking, use \fIenable\fP for that. D-Bus
+\fISleep\fP method is designed to put NetworkManager to sleep or awake for
+suspending/resuming the computer.
 .br
 .nf
 \fBReference to D-Bus:\fP
@@ -176,8 +190,8 @@ arguments: TRUE or FALSE
 .TP
 .B wifi [on|off]
 .br
-Inquire or set status of WiFi in NetworkManager.  Without any further argument,
-WiFi status is printed; \fIon\fP enables WiFi; \fIoff\fP disables WiFi.
+Inquire or set status of Wi-Fi in NetworkManager. If no arguments are supplied,
+Wi-Fi status is printed; \fIon\fP enables Wi-Fi; \fIoff\fP disables Wi-Fi.
 .br
 .nf
 \fBReference to D-Bus:\fP
@@ -186,9 +200,21 @@ No simple reference.
 .TP
 .B wwan [on|off]
 .br
-Inquire or set status of WWAN in NetworkManager.  Without any further argument,
+Inquire or set status of WWAN in NetworkManager. If no arguments are supplied,
 WWAN status is printed; \fIon\fP enables WWAN; \fIoff\fP disables WWAN.
 .br
+.nf
+\fBReference to D-Bus:\fP
+No simple reference.
+.fi
+.TP
+.B wimax [on|off]
+.br
+Inquire or set status of WiMAX in NetworkManager. If no arguments are supplied,
+WiMAX status is printed; \fIon\fP enables WiMAX; \fIoff\fP disables WiMAX.
+.br
+Note: WiMAX support is a compile-time decision, so it may be unavailable on some
+installations.
 .nf
 \fBReference to D-Bus:\fP
 No simple reference.
@@ -229,11 +255,11 @@ No simple reference.
 .B up id <id> | uuid <id> [iface <iface>] [ap <BSSID>] [\-\-nowait] [\-\-timeout <timeout>]
 .br
 Activate a connection.  The connection is identified by its name using \fIid\fP
-or UUID using \fIuuid\fP.  For requiring particular device to activate
-the connection on, \fIiface\fP option with interface name should be given.
-\fIap\fP option can further concretize what AP should be used in case of WiFi
-connection.  \fI\-\-nowait\fP option causes \fInmcli\fP to exit immediately and
-not to wait for command completion.  \fI\-\-timeout\fP option provides a means
+or UUID using \fIuuid\fP. When requiring a particular device to activate the
+connection on, the \fIiface\fP option with interface name should be given.
+The \fIap\fP option can further specify what AP should be used in case of a Wi-Fi
+connection. The \fI\-\-nowait\fP option causes \fInmcli\fP to exit immediately and
+not to wait for command completion. The \fI\-\-timeout\fP option provides a means
 to specify how long to wait for operation completion.
 .br
 .nf
@@ -258,7 +284,7 @@ arguments: according to arguments
 .TP
 .B delete id <id> | uuid <id>
 .br
-Delete a configured connection.  The connection to delete is specified with
+Delete a configured connection. The connection to delete is specified with
 \fIid\fP (connection name) or \fIuuid\fP (connection UUID).
 .br
 .nf
@@ -292,7 +318,7 @@ No simple reference.
 .B list [iface <iface>]
 .br
 Get detailed information about devices.  Without an argument, all devices are
-examined.  To get information for a specific device, \fIiface\fP argument
+examined. To get information for a specific device, the \fIiface\fP argument
 with the interface name should be provided.
 .br
 .nf
@@ -303,9 +329,9 @@ No simple reference.
 .B disconnect iface <iface> [\-\-nowait] [\-\-timeout <timeout>]
 .br
 Disconnect a device and prevent the device from automatically activating further
-connections without user/manual intervention.  \fI\-\-nowait\fP option causes
+connections without user/manual intervention. The \fI\-\-nowait\fP option causes
 \fInmcli\fP to exit immediately and not to wait for command completion.
-\fI\-\-timeout\fP option provides a means to specify how long to wait for
+The \fI\-\-timeout\fP option provides a means to specify how long to wait for
 operation completion.
 .br
 .nf
@@ -317,20 +343,58 @@ arguments: none
 .TP
 .B wifi [list [iface <iface>] [bssid <BSSID>]]
 .br
-List available WiFi access points.  \fIiface\fP and \fIbssid\fP options
-can be used to get just APs for particular interface or specific AP,
+List available Wi-Fi access points. The \fIiface\fP and \fIbssid\fP options
+can be used to list APs for a particular interface or with a specific BSSID,
 respectively.
 .br
 .nf
 \fBReference to D-Bus:\fP
 No simple reference.
 .fi
+.TP
+.B wifi connect <(B)SSID> [password <password>] [wep-key-type key|phrase] [iface <iface>] [bssid <BSSID>] [name <name>] [--private] [--nowait] [--timeout <timeout>]
+.br
+Connect to a Wi-Fi network specified by SSID or BSSID. The command creates a new
+connection and then activates it on a device. This is a command-line counterpart
+of clicking an SSID in a GUI client. The command always creates a new connection
+and thus it is mainly useful for connecting to new Wi-Fi networks. If a connection
+for the network already exists, it's better to connect through it using 
+\fInmcli con up id <name>\fP. Note that only open, WEP and WPA-PSK networks are
+supported at the moment. It is also supposed that IP configuration is obtained via
+DHCP.
+.RS
+.PP
+Available options are:
+.IP \fIpassword\fP 13
+- password for secured networks (WEP or WPA)
+.IP \fIwep-key-type\fP 13
+- type of WEP secret, either \fIkey\fP for ASCII/HEX key or \fIphrase\fP for passphrase
+.IP \fIiface\fP 13
+- interface that will be used for activation
+.IP \fIbssid\fP 13
+- if specified, the created connection will be restricted just for the BSSID
+.IP \fIname\fP 13
+- if specified, the connection will use the name (else NM creates a name itself)
+.IP \fI\-\-private\fP 13
+- the connection will only be visible to the user who created it (else the connection is system-wide)
+.IP \fI\-\-nowait\fP 13
+- exit immediately without waiting for command completion
+.IP \fI\-\-timeout\fP 13
+- how long to wait for command completion (default is 90 s)
+.PP
+.br
+.nf
+\fBReference to D-Bus:\fP
+interface: org.freedesktop.NetworkManager
+method:    AddAndActivateConnection
+arguments: according to arguments
+.fi
 .RE
 
 .SH ENVIRONMENT VARIABLES
 \fInmcli\fP's behavior is affected by the following environment variables.
 .IP "LC_ALL" 13
-If set to a non-empty string value, override the values of all the other
+If set to a non-empty string value, it overrides the values of all the other
 internationalization variables.
 .IP "LC_MESSAGES" 13
 Determines the locale to be used for internationalised messages.
@@ -354,7 +418,8 @@ uses for messages.  The "C" locale is used if none of these variables are set,
 and this locale uses English messages.
 
 .SH EXIT STATUS
-\fInmcli\fP exits with status 0 if it succeeds, a value greater than 0 is returned if errors occur.
+\fInmcli\fP exits with status 0 if it succeeds, a value greater than 0 is
+returned if an error occurs.
 .IP "0" 4
 Success - indicates the operation succeeded
 .IP "1" 4
